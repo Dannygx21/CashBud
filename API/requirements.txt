@@ -1,2 +1,6 @@
+asyncpg
 fastapi
 uvicorn
+ormar
+psycopg2-binary
+

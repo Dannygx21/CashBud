@@ -1,11 +1,14 @@
-FROM python:3.10-slim
+FROM python:3.11.1-slim
 
-WORKDIR /code
+WORKDIR /app
 
-COPY ./requirements.txt ./
+# set env variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./server ./server
+COPY . .
 
-CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
