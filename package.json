@@ -1,0 +1,20 @@
+{
+  "name": "cashbud",
+  "version": "1.0.0",
+  "description": "budgeting app",
+  "homepage": "https://github.com/Dannygx21/CashBud#readme",
+  "bugs": {
+    "url": "https://github.com/Dannygx21/CashBud/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dannygx21/CashBud.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
