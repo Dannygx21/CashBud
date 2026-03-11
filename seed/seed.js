@@ -3,37 +3,41 @@
  * Run: node scripts/seed.js
  * Requires MONGO_URI in .env
  */
-require('dotenv')
+const path = require('path');
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'production'
+    ? path.resolve(__dirname, '../.env')
+    : path.resolve(__dirname, '../.env.local'),
+})
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const Account = require('../models/Account');
-const MonthlyExpense = require('../models/MonthlyExpense');
-const Transaction = require('../models/Transaction');
-const User = require('../models/User');
+const Account = require('../db/models/Account.model.cjs');
+const MonthlyExpense = require('../db/models/MonthlyExpense.model.cjs');
+const User = require('../db/models/User.model.cjs');
 
-const connectToMongo = require('../db/connect')
+const { connectToMongo } = require('../db/connect.cjs')
 
 // ─── ACCOUNTS ────────────────────────────────────────────────────────────────
 const ACCOUNTS = [
-  { name: 'Amex', displayName: 'Amex Checking', type: 'Debit', category: 'Checking', balance: 214.67 },
-  { name: 'Amex', displayName: 'Amex Credit', type: 'Credit', category: 'Credit', balance: 4686.09 },
-  { name: 'SoFi', displayName: 'SoFi Checking', type: 'Debit', category: 'Checking', balance: 7030.27 },
-  { name: 'SoFi', displayName: 'SoFi HYSA', type: 'Debit', category: 'Savings', balance: 631.45 },
-  { name: 'Amex', displayName: 'Amex HYSA', type: 'Debit', category: 'Savings', balance: 6526.98 },
-  { name: 'Navy Fed', displayName: 'Navy Fed 4SN', type: 'Debit', category: 'Checking', balance: 2956.22 },
-  { name: 'Navy Fed', displayName: 'Navy Fed EF', type: 'Debit', category: 'Savings', balance: 1592.92 },
-  { name: 'Navy Fed', displayName: 'Navy Fed Roth IRA', type: 'Debit', category: 'Investments', balance: 4264.24 },
-  { name: 'Navy Fed', displayName: 'Wife Credit', type: 'Credit', category: 'Credit', balance: 792.84 },
-  { name: 'Citi', displayName: 'Citi Credit', type: 'Credit', category: 'Credit', balance: 454.25 },
-  { name: 'Clasp', displayName: 'Student Loan', type: 'Credit', category: 'Loan', balance: 6460.00 },
-  { name: 'Patient Fi', displayName: 'Laser Big', type: 'Credit', category: 'Loan', balance: 8327.18 },
-  { name: 'Alphaeon', displayName: 'Laser Small', type: 'Credit', category: 'Credit', balance: 1403.00 },
-  { name: 'Best Buy', displayName: 'Best Buy Credit', type: 'Credit', category: 'Credit', balance: 2404.70 },
-  { name: 'Fidelity', displayName: 'Fidelity Investments', type: 'Debit', category: 'Investments', balance: 0 },
-  { name: 'Vanguard', displayName: '401K', type: 'Debit', category: 'Investments', balance: 1921.06 },
-  { name: 'TSP', displayName: 'TSP', type: 'Debit', category: 'Investments', balance: 0 },
-  { name: 'Toyota Financial', displayName: 'Corolla Hatchback', type: 'Credit', category: 'Loan', balance: 34029.15 },
-  { name: 'T-Mobile', displayName: "Wife's iPhone", type: 'Credit', category: 'Credit', balance: -84.58, notes: 'Total: 1,015' },
+  { name: 'Amex', institution: 'Amex', displayName: 'Amex Checking', type: 'Debit', category: 'Checking', balance: 214.67 },
+  { name: 'Amex', institution: 'Amex', displayName: 'Amex Credit', type: 'Credit', category: 'Credit', balance: 4686.09 },
+  { name: 'SoFi', institution: 'SoFi', displayName: 'SoFi Checking', type: 'Debit', category: 'Checking', balance: 7030.27 },
+  { name: 'SoFi', institution: 'SoFi', displayName: 'SoFi HYSA', type: 'Debit', category: 'Savings', balance: 631.45 },
+  { name: 'Amex', institution: 'Amex', displayName: 'Amex HYSA', type: 'Debit', category: 'Savings', balance: 6526.98 },
+  { name: 'Navy Fed', institution: 'Navy Fed', displayName: 'Navy Fed 4SN', type: 'Debit', category: 'Checking', balance: 2956.22 },
+  { name: 'Navy Fed', institution: 'Navy Fed', displayName: 'Navy Fed EF', type: 'Debit', category: 'Savings', balance: 1592.92 },
+  { name: 'Navy Fed', institution: 'Navy Fed', displayName: 'Navy Fed Roth IRA', type: 'Debit', category: 'Investments', balance: 4264.24 },
+  { name: 'Navy Fed', institution: 'Navy Fed', displayName: 'Wife Credit', type: 'Credit', category: 'Credit', balance: 792.84 },
+  { name: 'Citi', institution: 'Citi', displayName: 'Citi Credit', type: 'Credit', category: 'Credit', balance: 454.25 },
+  { name: 'Clasp', institution: 'Clasp', displayName: 'Student Loan', type: 'Credit', category: 'Loan', balance: 6460.00 },
+  { name: 'Patient Fi', institution: 'Patient Fi', displayName: 'Laser Big', type: 'Credit', category: 'Loan', balance: 8327.18 },
+  { name: 'Alphaeon', institution: 'Alphaeon', displayName: 'Laser Small', type: 'Credit', category: 'Credit', balance: 1403.00 },
+  { name: 'Best Buy', institution: 'Best Buy', displayName: 'Best Buy Credit', type: 'Credit', category: 'Credit', balance: 2404.70 },
+  { name: 'Fidelity', institution: 'Fidelity', displayName: 'Fidelity Investments', type: 'Debit', category: 'Investments', balance: 0 },
+  { name: 'Vanguard', institution: 'Vanguard', displayName: '401K', type: 'Debit', category: 'Investments', balance: 1921.06 },
+  { name: 'TSP', institution: 'TSP', displayName: 'TSP', type: 'Debit', category: 'Investments', balance: 0 },
+  { name: 'Toyota Financial', institution: 'Toyota Financial', displayName: 'Corolla Hatchback', type: 'Credit', category: 'Loan', balance: 34029.15 },
+  { name: 'T-Mobile', institution: 'T-Mobile', displayName: "Wife's iPhone", type: 'Credit', category: 'Credit', balance: -84.58, notes: 'Total: 1,015' },
 ].map((a, i) => ({ ...a, sortOrder: i, lastUpdated: new Date('2026-01-20'), isActive: true }));
 
 // ─── MONTHLY EXPENSES ─────────────────────────────────────────────────────────
@@ -74,7 +78,7 @@ const EXPENSES = [
 
 // ─── SEED ─────────────────────────────────────────────────────────────────────
 async function seed() {
-  connectToMongo("Successfully connected to mongo for seed", "FAILED SEED Mongo Connection")
+  await connectToMongo("Successfully connected to mongo for seed", "FAILED SEED Mongo Connection")
 
   // Clear existing data
   await Promise.all([

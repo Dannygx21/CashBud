@@ -6,8 +6,8 @@ function buildMongoURI() {
         DB_DBNAME,
     } = process.env;
 
-    if (!MONGO_URL || !DB_DBNAME) {
-        throw new Error('Missing required MongoDB environment variables: MONGO_URL, MONGO_DBNAME');
+    if (!MONGO_URI || !DB_DBNAME) {
+        throw new Error('Missing required MongoDB environment variables: MONGO_URI, DB_DBNAME');
     }
 
     return `${MONGO_URI}`

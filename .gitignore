@@ -105,3 +105,7 @@ dist
 
 # Docker
 docker-compose.yml
+
+#Excel
+.xlsx
+*.xlsx
