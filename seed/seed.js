@@ -11,10 +11,7 @@ const MonthlyExpense = require('../models/MonthlyExpense');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 
-const MONGO_URI = process.env.MONGO_URI
-if (!MONGO_URI || !DB_DBNAME) {
-  throw new Error('Missing mongo uri or mongo db name')
-}
+const connectToMongo = require('../db/connect')
 
 // ─── ACCOUNTS ────────────────────────────────────────────────────────────────
 const ACCOUNTS = [
@@ -77,27 +74,7 @@ const EXPENSES = [
 
 // ─── SEED ─────────────────────────────────────────────────────────────────────
 async function seed() {
-  const {
-    DB_DBNAME,
-    DB_USER,
-    DB_PASS,
-    DB_SOURCE
-  } = process.env
-
-  const options = {
-    user: DB_USER,
-    pass: DB_PASS,
-    dbName: DB_DBNAME,
-    authSource: DB_SOURCE == null ? DB_DBNAME : DB_SOURCE
-  }
-
-  try {
-    await mongoose.connect(MONGO_URI, options);
-    console.log(`Connected to MongoDB, DbName: ${options.dbName}`);
-  } catch (err) {
-    console.error('Error connecting to MongoDB: ', err)
-    throw err;
-  }
+  connectToMongo("Successfully connected to mongo for seed", "FAILED SEED Mongo Connection")
 
   // Clear existing data
   await Promise.all([
