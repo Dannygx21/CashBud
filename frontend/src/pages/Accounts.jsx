@@ -6,13 +6,13 @@ import api from '../api/client'
 const fmt = (n) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 
-const CATEGORY_ORDER  = ['Checking', 'Savings', 'Investments', 'Credit', 'Loan']
+const CATEGORY_ORDER = ['Checking', 'Credit', 'Loan', 'Savings', 'Investments',]
 const CATEGORY_CONFIG = {
-  Checking:    { label: 'Checking',     color: 'bg-sage/10 text-sage-dark',      dot: 'bg-sage',          icon: '◈' },
-  Savings:     { label: 'Savings',      color: 'bg-blue-50 text-blue-700',        dot: 'bg-blue-400',      icon: '⬡' },
-  Investments: { label: 'Investments',  color: 'bg-violet-50 text-violet-700',    dot: 'bg-violet-400',    icon: '◇' },
-  Credit:      { label: 'Credit Cards', color: 'bg-amber-50 text-amber-700',      dot: 'bg-amber-budget',  icon: '□' },
-  Loan:        { label: 'Loans',        color: 'bg-coral/10 text-coral',          dot: 'bg-coral',         icon: '↯' },
+  Checking: { label: 'Checking', color: 'bg-sage/10 text-sage-dark', dot: 'bg-sage', icon: '◈' },
+  Savings: { label: 'Savings', color: 'bg-blue-50 text-blue-700', dot: 'bg-blue-400', icon: '⬡' },
+  Investments: { label: 'Investments', color: 'bg-violet-50 text-violet-700', dot: 'bg-violet-400', icon: '◇' },
+  Credit: { label: 'Credit Cards', color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-budget', icon: '□' },
+  Loan: { label: 'Loans', color: 'bg-coral/10 text-coral', dot: 'bg-coral', icon: '↯' },
 }
 
 function moneyClass(n, category) {
@@ -24,11 +24,11 @@ function moneyClass(n, category) {
 
 function NetWorthCard({ summary }) {
   const items = [
-    { label: 'Cash',        value: summary.cash,        positive: true  },
-    { label: 'Savings',     value: summary.savings,     positive: true  },
-    { label: 'Investments', value: summary.investments, positive: true  },
-    { label: 'Credit',      value: -summary.credit,     positive: false },
-    { label: 'Loans',       value: -summary.loans,      positive: false },
+    { label: 'Cash', value: summary.cash, positive: true },
+    { label: 'Savings', value: summary.savings, positive: true },
+    { label: 'Investments', value: summary.investments, positive: true },
+    { label: 'Credit', value: -summary.credit, positive: false },
+    { label: 'Loans', value: -summary.loans, positive: false },
   ]
   return (
     <div className="card p-7 fade-up fade-up-1">
