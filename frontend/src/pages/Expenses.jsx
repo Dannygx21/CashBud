@@ -168,7 +168,7 @@ function ExpenseRow({ expense, onEdit, animDelay }) {
         </div>
         <button
           onClick={() => onEdit(expense)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
         >
           edit
         </button>

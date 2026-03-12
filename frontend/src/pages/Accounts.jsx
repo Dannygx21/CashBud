@@ -36,7 +36,7 @@ function NetWorthCard({ summary }) {
       <p className={`font-display text-5xl italic tracking-tight mb-6 ${summary.total >= 0 ? 'text-ink-900' : 'text-coral'}`}>
         {fmt(summary.total)}
       </p>
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {items.map(({ label, value, positive }) => (
           <div key={label} className="text-center">
             <p className="label mb-1">{label}</p>
@@ -134,7 +134,7 @@ function AccountRow({ account, onUpdateBalance, animDelay }) {
             </span>
             <button
               onClick={() => setEditing(true)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
+              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
             >
               edit
             </button>

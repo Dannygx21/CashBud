@@ -40,9 +40,9 @@ function MonthRow({ month, index }) {
       <td className={`px-4 py-3 text-sm font-mono ${month.netProfit >= 0 ? 'text-sage-dark' : 'text-coral'}`}>
         {hasData ? fmt(month.netProfit) : '—'}
       </td>
-      <td className="px-4 py-3 text-sm font-mono text-blue-600">{hasData ? fmt(month.totalSavings) : '—'}</td>
-      <td className="px-4 py-3 text-sm font-mono text-violet-600">{hasData ? fmt(month.investments) : '—'}</td>
-      <td className="px-4 py-3 text-sm font-mono text-ink-400">{hasData ? pct(month.totalSavingsPct) : '—'}</td>
+      <td className="px-4 py-3 text-sm font-mono text-blue-600 hidden sm:table-cell">{hasData ? fmt(month.totalSavings) : '—'}</td>
+      <td className="px-4 py-3 text-sm font-mono text-violet-600 hidden sm:table-cell">{hasData ? fmt(month.investments) : '—'}</td>
+      <td className="px-4 py-3 text-sm font-mono text-ink-400 hidden sm:table-cell">{hasData ? pct(month.totalSavingsPct) : '—'}</td>
     </tr>
   )
 }
@@ -163,7 +163,7 @@ export default function Dashboard() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <SummaryCard label="Total Income"   value={totalIncome}   positive={true} />
         <SummaryCard label="Total Expenses" value={totalExpenses} positive={false} />
         <SummaryCard label="Net Profit"     value={netProfit}     />
@@ -191,10 +191,10 @@ export default function Dashboard() {
       </div>
 
       {/* Month table + category breakdown */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Month-by-month table */}
-        <div className="col-span-2 card overflow-hidden fade-up">
+        <div className="lg:col-span-2 card overflow-hidden fade-up">
           <div className="px-5 py-4 border-b border-ink-100">
             <p className="label">Month by Month</p>
           </div>
@@ -202,8 +202,16 @@ export default function Dashboard() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-ink-100 bg-ink-50">
-                  {['Month', 'Income', 'Expenses', 'Net', 'Savings', 'Invested', 'Save %'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-xs font-medium text-ink-400 uppercase tracking-wide">{h}</th>
+                  {[
+                    { h: 'Month',    hide: false },
+                    { h: 'Income',   hide: false },
+                    { h: 'Expenses', hide: false },
+                    { h: 'Net',      hide: false },
+                    { h: 'Savings',  hide: true  },
+                    { h: 'Invested', hide: true  },
+                    { h: 'Save %',   hide: true  },
+                  ].map(({ h, hide }) => (
+                    <th key={h} className={`px-4 py-2.5 text-xs font-medium text-ink-400 uppercase tracking-wide${hide ? ' hidden sm:table-cell' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
