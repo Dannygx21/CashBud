@@ -92,8 +92,8 @@ async function seed() {
   const [daniel, chloe] = await Promise.all([
     User.create({
       name: 'Daniel',
-      email: 'daniel@home.local',
-      passwordHash: await bcrypt.hash('changeme123', 12),
+      email: process.env.USER1_EMAIL || 'daniel@home.local',
+      passwordHash: await bcrypt.hash(process.env.USER1_PASS || 'changeme123', 12),
       incomePerPaycheck: 2500.34,
       paycheckFrequency: 'biweekly',
       role: 'admin',
@@ -101,8 +101,8 @@ async function seed() {
     }),
     User.create({
       name: 'Chloe',
-      email: 'chloe@home.local',
-      passwordHash: await bcrypt.hash('changeme123', 12),
+      email: process.env.USER2_EMAIL || 'chloe@home.local',
+      passwordHash: await bcrypt.hash(process.env.USER2_PASS || 'changeme123', 12),
       incomePerPaycheck: 1296.14,
       paycheckFrequency: 'biweekly',
       role: 'member',
