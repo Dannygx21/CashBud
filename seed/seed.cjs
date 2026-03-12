@@ -74,7 +74,7 @@ const EXPENSES = [
   { name: 'Paramount +', amount: 5.30, category: 'Want', frequency: 'Yearly', notes: '$119.99/yr; 50% Discount: $63.59/yr', personPaying: 'Chloe', paused: false },
   { name: 'AMC Stubs Membership', amount: 1.50, category: 'Membership', frequency: 'Yearly', notes: '$17.99 Per Year', personPaying: 'Chloe', paused: false },
   { name: 'Mac Mini', amount: 35.00, category: 'Want', frequency: 'Monthly', notes: '18 months of payments ($630 total)', personPaying: 'Daniel', paused: false },
-].map((e, i) => ({ isActive: true, sortOrder: i, ...e }));
+].map((e) => ({ isActive: true, ...e }));
 
 // ─── SEED ─────────────────────────────────────────────────────────────────────
 async function seed() {

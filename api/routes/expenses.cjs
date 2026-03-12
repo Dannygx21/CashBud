@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const filter = req.query.includeInactive === 'true' ? {} : { isActive: true };
-    const expenses = await MonthlyExpense.find(filter).sort({ sortOrder: 1 });
+    const expenses = await MonthlyExpense.find(filter).sort({ amount: -1 });
     res.json(expenses);
   } catch (err) {
     console.error('[expenses/get]', err);

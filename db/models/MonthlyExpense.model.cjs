@@ -14,7 +14,6 @@ const monthlyExpenseSchema = new mongoose.Schema({
   categoryPercentage: { type: Number, default: 0 },
   paused:             { type: Boolean, default: false },
   isActive:           { type: Boolean, default: true },
-  sortOrder:          { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model('MonthlyExpense', monthlyExpenseSchema);
