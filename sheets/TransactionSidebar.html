@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      color: #1e293b;
+      background: #f8fafc;
+      padding: 16px;
+    }
+
+    /* ── Mode toggle ───────────────────────────────────────────────────── */
+    .mode-toggle {
+      display: flex;
+      background: #e2e8f0;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 16px;
+    }
+    .mode-toggle button {
+      flex: 1;
+      padding: 6px 0;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .mode-toggle button.active {
+      background: #fff;
+      color: #1e293b;
+      box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+
+    /* ── Form elements ──────────────────────────────────────────────────── */
+    .field { margin-bottom: 12px; }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #1e293b;
+      background: #fff;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #4d7c6b;
+      box-shadow: 0 0 0 2px rgba(77,124,107,.15);
+    }
+
+    /* ── Row helper ─────────────────────────────────────────────────────── */
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* ── Divider ────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      margin: 14px 0;
+    }
+
+    /* ── Paired section headers ─────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 8px;
+    }
+
+    /* ── crDr badge toggles ─────────────────────────────────────────────── */
+    .crdr-group {
+      display: flex;
+      gap: 6px;
+    }
+    .crdr-group button {
+      flex: 1;
+      padding: 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .crdr-group button.active-debit  { background:#dcfce7; border-color:#22c55e; color:#166534; }
+    .crdr-group button.active-credit { background:#fee2e2; border-color:#ef4444; color:#991b1b; }
+
+    /* ── Submit button ──────────────────────────────────────────────────── */
+    .btn-submit {
+      width: 100%;
+      padding: 10px;
+      background: #4d7c6b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: background .15s;
+    }
+    .btn-submit:hover  { background: #3d6b5a; }
+    .btn-submit:active { background: #2f5446; }
+    .btn-submit:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* ── Feedback ───────────────────────────────────────────────────────── */
+    #feedback {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+    }
+    #feedback.success { background:#dcfce7; color:#166534; display:block; }
+    #feedback.error   { background:#fee2e2; color:#991b1b; display:block; }
+
+    .loading { opacity: .5; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <button id="btnSingle"  class="active" onclick="setMode('single')">Single Entry</button>
+    <button id="btnPaired"          onclick="setMode('paired')">Payment / Transfer</button>
+  </div>
+
+  <form id="txForm" onsubmit="handleSubmit(event)">
+
+    <!-- Shared: Date + Pay Period -->
+    <div class="row2">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="date" required>
+      </div>
+      <div class="field">
+        <label>Pay Period</label>
+        <input type="text" id="payPeriod" placeholder="e.g. 1/9 – 1/22">
+      </div>
+    </div>
+
+    <!-- ══ SINGLE ENTRY ════════════════════════════════════════════════════ -->
+    <div id="singleSection">
+      <div class="field">
+        <label>Account</label>
+        <select id="accountSingle" onchange="onAccountChange('single')">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <select id="categorySingle">
+          <option value="">Select…</option>
+          <option>Income</option>
+          <option>Savings</option>
+          <option>Investment</option>
+          <option>Food</option>
+          <option>Wants</option>
+          <option>Grocery</option>
+          <option>Gas</option>
+          <option>Subscription</option>
+          <option>Entertainment</option>
+          <option>Membership</option>
+          <option>Needs</option>
+          <option>Bill/Loan/Credit</option>
+          <option>Balance</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="descriptionSingle" placeholder="e.g. Chipotle">
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Amount ($)</label>
+          <input type="number" id="amountSingle" min="0.01" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field">
+          <label>Debit / Credit</label>
+          <div class="crdr-group">
+            <button type="button" id="btnDebitS"  onclick="setCrDr('single','Debit')"  class="active-debit">Debit</button>
+            <button type="button" id="btnCreditS" onclick="setCrDr('single','Credit')">Credit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAIRED ENTRY ════════════════════════════════════════════════════ -->
+    <div id="pairedSection" style="display:none">
+
+      <!-- FROM -->
+      <p class="section-label">From (source)</p>
+      <div class="field">
+        <label>Account</label>
+        <select id="accountFrom" onchange="onAccountChange('from')">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="categoryFrom">
+          <option value="">Select…</option>
+          <option>Balance</option>
+          <option>Bill/Loan/Credit</option>
+          <option>Savings</option>
+          <option>Investment</option>
+          <option>Income</option>
+          <option>Food</option>
+          <option>Wants</option>
+          <option>Grocery</option>
+          <option>Gas</option>
+          <option>Subscription</option>
+          <option>Entertainment</option>
+          <option>Membership</option>
+          <option>Needs</option>
+        </select>
+      </div>
+
+      <hr class="divider">
+
+      <!-- TO -->
+      <p class="section-label">To (destination)</p>
+      <div class="field">
+        <label>Account</label>
+        <select id="accountTo" onchange="onAccountChange('to')">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="categoryTo">
+          <option value="">Select…</option>
+          <option>Balance</option>
+          <option>Bill/Loan/Credit</option>
+          <option>Savings</option>
+          <option>Investment</option>
+          <option>Income</option>
+          <option>Food</option>
+          <option>Wants</option>
+          <option>Grocery</option>
+          <option>Gas</option>
+          <option>Subscription</option>
+          <option>Entertainment</option>
+          <option>Membership</option>
+          <option>Needs</option>
+        </select>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Shared amount + description for paired -->
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="descriptionPaired" placeholder="e.g. Student loan payment">
+      </div>
+      <div class="field">
+        <label>Amount ($)</label>
+        <input type="number" id="amountPaired" min="0.01" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+
+    <button type="submit" class="btn-submit" id="submitBtn">Add Transaction</button>
+  </form>
+
+  <div id="feedback"></div>
+
+  <script>
+    var mode      = 'single';
+    var crDrSingle = 'Debit';
+    var accounts  = [];
+
+    // ── Category suggestion map (by account category) ────────────────────────
+    var TO_CATEGORY = {
+      Loan:        'Bill/Loan/Credit',
+      Credit:      'Balance',
+      Savings:     'Savings',
+      Checking:    'Balance',
+      Investments: 'Investment',
+    };
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    window.onload = function() {
+      // Default date = today
+      var today = new Date().toISOString().split('T')[0];
+      document.getElementById('date').value = today;
+
+      // Load accounts
+      google.script.run
+        .withSuccessHandler(onAccountsLoaded)
+        .withFailureHandler(function(e) {
+          showFeedback('error', 'Could not load accounts: ' + e.message);
+        })
+        .getAccounts();
+    };
+
+    function onAccountsLoaded(data) {
+      accounts = data;
+      var selectors = ['accountSingle', 'accountFrom', 'accountTo'];
+      selectors.forEach(function(id) {
+        var sel = document.getElementById(id);
+        sel.innerHTML = '<option value="">Select account…</option>';
+        data.forEach(function(a) {
+          var opt = document.createElement('option');
+          opt.value = JSON.stringify({ id: a._id, name: a.displayName, type: a.type, category: a.category });
+          opt.textContent = a.displayName + ' (' + a.institution + ')';
+          sel.appendChild(opt);
+        });
+      });
+    }
+
+    // ── Mode toggle ──────────────────────────────────────────────────────────
+    function setMode(m) {
+      mode = m;
+      document.getElementById('btnSingle').classList.toggle('active', m === 'single');
+      document.getElementById('btnPaired').classList.toggle('active', m === 'paired');
+      document.getElementById('singleSection').style.display = m === 'single' ? '' : 'none';
+      document.getElementById('pairedSection').style.display = m === 'paired' ? '' : 'none';
+      hideFeedback();
+    }
+
+    // ── Debit/Credit toggle (single mode) ────────────────────────────────────
+    function setCrDr(scope, val) {
+      crDrSingle = val;
+      document.getElementById('btnDebitS').className  = val === 'Debit'  ? 'active-debit'  : '';
+      document.getElementById('btnCreditS').className = val === 'Credit' ? 'active-credit' : '';
+    }
+
+    // ── Auto-suggest category when account changes ────────────────────────────
+    function onAccountChange(scope) {
+      var selId = scope === 'single' ? 'accountSingle'
+                : scope === 'from'   ? 'accountFrom'
+                :                     'accountTo';
+      var catId = scope === 'single' ? 'categorySingle'
+                : scope === 'from'   ? 'categoryFrom'
+                :                     'categoryTo';
+
+      var raw = document.getElementById(selId).value;
+      if (!raw) return;
+      var acct = JSON.parse(raw);
+
+      if (scope === 'to') {
+        var suggested = TO_CATEGORY[acct.category] || 'Balance';
+        setSelectValue(catId, suggested);
+      }
+    }
+
+    function setSelectValue(selId, val) {
+      var sel = document.getElementById(selId);
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === val) { sel.selectedIndex = i; return; }
+      }
+    }
+
+    // ── Submit ───────────────────────────────────────────────────────────────
+    function handleSubmit(e) {
+      e.preventDefault();
+      hideFeedback();
+
+      var date      = document.getElementById('date').value;
+      var payPeriod = document.getElementById('payPeriod').value.trim();
+
+      if (!date) { showFeedback('error', 'Date is required.'); return; }
+
+      var payload;
+
+      if (mode === 'single') {
+        var acctRaw = document.getElementById('accountSingle').value;
+        if (!acctRaw) { showFeedback('error', 'Select an account.'); return; }
+        var acct    = JSON.parse(acctRaw);
+        var cat     = document.getElementById('categorySingle').value;
+        var desc    = document.getElementById('descriptionSingle').value.trim();
+        var amount  = parseFloat(document.getElementById('amountSingle').value);
+
+        if (!cat)        { showFeedback('error', 'Select a category.'); return; }
+        if (!amount || amount <= 0) { showFeedback('error', 'Enter a valid amount.'); return; }
+
+        payload = {
+          date:        date,
+          payPeriod:   payPeriod,
+          accountId:   acct.id,
+          account:     acct.name,
+          accountType: acct.type,
+          category:    cat,
+          description: desc,
+          crDr:        crDrSingle,
+          amount:      amount,
+        };
+
+      } else {
+        // Paired
+        var fromRaw = document.getElementById('accountFrom').value;
+        var toRaw   = document.getElementById('accountTo').value;
+        if (!fromRaw || !toRaw) { showFeedback('error', 'Select both accounts.'); return; }
+
+        var fromAcct  = JSON.parse(fromRaw);
+        var toAcct    = JSON.parse(toRaw);
+        var fromCat   = document.getElementById('categoryFrom').value;
+        var toCat     = document.getElementById('categoryTo').value;
+        var desc      = document.getElementById('descriptionPaired').value.trim();
+        var amount    = parseFloat(document.getElementById('amountPaired').value);
+
+        if (!fromCat || !toCat) { showFeedback('error', 'Select categories for both legs.'); return; }
+        if (!amount || amount <= 0) { showFeedback('error', 'Enter a valid amount.'); return; }
+
+        payload = {
+          date:      date,
+          payPeriod: payPeriod,
+          paired: {
+            primary: {
+              accountId:   fromAcct.id,
+              account:     fromAcct.name,
+              accountType: fromAcct.type,
+              category:    fromCat,
+              description: desc,
+              crDr:        'Credit',   // money leaving source
+              amount:      amount,
+            },
+            secondary: {
+              accountId:   toAcct.id,
+              account:     toAcct.name,
+              accountType: toAcct.type,
+              category:    toCat,
+              description: desc,
+              crDr:        'Debit',    // money arriving at destination
+              amount:      amount,
+            },
+          },
+        };
+      }
+
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .submitTransaction(payload);
+    }
+
+    function onSuccess(result) {
+      setLoading(false);
+      showFeedback('success', '✓ Transaction saved!');
+      // Reset form fields (keep date / pay period)
+      if (mode === 'single') {
+        document.getElementById('accountSingle').value = '';
+        document.getElementById('categorySingle').value = '';
+        document.getElementById('descriptionSingle').value = '';
+        document.getElementById('amountSingle').value = '';
+        setCrDr('single', 'Debit');
+      } else {
+        document.getElementById('accountFrom').value = '';
+        document.getElementById('accountTo').value = '';
+        document.getElementById('categoryFrom').value = '';
+        document.getElementById('categoryTo').value = '';
+        document.getElementById('descriptionPaired').value = '';
+        document.getElementById('amountPaired').value = '';
+      }
+    }
+
+    function onError(e) {
+      setLoading(false);
+      showFeedback('error', 'Error: ' + e.message);
+    }
+
+    function showFeedback(type, msg) {
+      var el = document.getElementById('feedback');
+      el.className = type;
+      el.textContent = msg;
+    }
+
+    function hideFeedback() {
+      var el = document.getElementById('feedback');
+      el.className = '';
+      el.textContent = '';
+      el.style.display = 'none';
+    }
+
+    function setLoading(on) {
+      document.getElementById('submitBtn').disabled = on;
+      document.getElementById('submitBtn').textContent = on ? 'Saving…' : 'Add Transaction';
+    }
+  </script>
+</body>
+</html>
