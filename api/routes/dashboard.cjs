@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
 
       const sumByCategory = (cats) =>
         monthTxns
-          .filter(t => cats.includes(t.category) && t.crDr === 'Credit')
+          .filter(t => cats.includes(t.category) && (t.crDr === 'Credit' || t.category === 'Bill/Loan/Credit'))
           .reduce((s, t) => s + t.amount, 0);
 
       const income = monthTxns

@@ -7,7 +7,7 @@ import api from '../api/client'
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const fmt = (n) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
 const pct = (n) => `${(n * 100).toFixed(1)}%`
 

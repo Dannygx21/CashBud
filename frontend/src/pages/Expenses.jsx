@@ -154,8 +154,11 @@ function ExpenseRow({ expense, onEdit, animDelay }) {
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
+        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500">
+          {expense.frequency}
+        </span>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
-          {expense.frequency === 'Yearly' ? 'Yearly' : expense.category}
+          {expense.category}
         </span>
         <div className="text-right">
           <p className="text-sm font-mono font-medium text-ink-900">{fmt(expense.amount)}</p>

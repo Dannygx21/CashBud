@@ -9,8 +9,6 @@ const CATEGORIES = [
   'Bill/Loan/Credit', 'Investment', 'Savings', 'Balance', 'Transaction',
 ]
 
-const ACCOUNT_TYPES = ['Debit', 'Credit']
-
 const CATEGORY_COLORS = {
   Income:            'bg-sage/10 text-sage-dark',
   Food:              'bg-amber-50 text-amber-700',
@@ -48,32 +46,98 @@ function currentYearMonth() {
 
 // ─── Add Transaction Modal ────────────────────────────────────────────────────
 
+// Auto-suggest the "to" category based on account category
+const TO_CATEGORY = {
+  Loan:        'Bill/Loan/Credit',
+  Credit:      'Transaction',
+  Savings:     'Savings',
+  Checking:    'Balance',
+  Investments: 'Investment',
+}
+
+function AccountSelect({ accounts, value, onChange, required }) {
+  return (
+    <select className="input" value={value} onChange={onChange} required={required}>
+      <option value="">Select account…</option>
+      {accounts.map(a => (
+        <option key={a._id} value={a._id}>{a.displayName} ({a.type})</option>
+      ))}
+    </select>
+  )
+}
+
 function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
   const [year, mon] = selectedMonth.split('-')
-  const [form, setForm] = useState({
-    date:        `${year}-${mon}-01`,
-    account:     '',
-    accountType: 'Debit',
-    category:    'Food',
-    description: '',
-    crDr:        'Credit',
-    amount:      '',
-  })
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
+  const [mode, setMode] = useState('single') // 'single' | 'paired'
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  // Shared fields
+  const [date, setDate]           = useState(`${year}-${mon}-01`)
+  const [amount, setAmount]       = useState('')
+  const [description, setDesc]    = useState('')
+
+  // Single-mode fields
+  const [single, setSingle] = useState({
+    accountId: '', account: '', accountType: 'Debit',
+    category: 'Food', crDr: 'Credit',
+  })
+
+  // Paired-mode fields
+  const [from, setFrom] = useState({ accountId: '', account: '', accountType: '' })
+  const [to, setTo]     = useState({ accountId: '', account: '', accountType: '', category: 'Bill/Loan/Credit' })
+
+  const [accounts, setAccounts] = useState([])
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
+
+  useEffect(() => {
+    api.get('/accounts').then(({ data }) => setAccounts(data)).catch(() => {})
+  }, [])
+
+  const handleSingleAccount = (e) => {
+    const a = accounts.find(x => x._id === e.target.value)
+    if (!a) return
+    setSingle(s => ({ ...s, accountId: a._id, account: a.displayName, accountType: a.type }))
+  }
+
+  const handleFromAccount = (e) => {
+    const a = accounts.find(x => x._id === e.target.value)
+    if (!a) return
+    setFrom({ accountId: a._id, account: a.displayName, accountType: a.type })
+  }
+
+  const handleToAccount = (e) => {
+    const a = accounts.find(x => x._id === e.target.value)
+    if (!a) return
+    setTo(t => ({
+      ...t,
+      accountId:   a._id,
+      account:     a.displayName,
+      accountType: a.type,
+      category:    TO_CATEGORY[a.category] || 'Bill/Loan/Credit',
+    }))
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
     setError('')
     try {
-      const { data } = await api.post('/transactions', {
-        ...form,
-        amount: parseFloat(form.amount),
-      })
-      onCreated(data)
+      const amt = parseFloat(amount)
+
+      if (mode === 'paired') {
+        const { data } = await api.post('/transactions', {
+          date,
+          paired: {
+            primary:   { ...to,   description, crDr: 'Debit',  amount: amt },
+            secondary: { ...from, description, crDr: 'Credit', amount: amt, category: 'Balance' },
+          },
+        })
+        onCreated(data)
+      } else {
+        const { data } = await api.post('/transactions', { ...single, date, description, amount: amt })
+        onCreated(data)
+      }
+
       onClose()
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create transaction.')
@@ -85,55 +149,100 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
   return (
     <div className="fixed inset-0 bg-ink-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-md p-7 fade-up">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <h2 className="font-display text-2xl italic text-ink-900">New Transaction</h2>
           <button onClick={onClose} className="text-ink-400 hover:text-ink-700 transition-colors text-lg">✕</button>
         </div>
 
+        {/* Mode toggle */}
+        <div className="flex gap-1 p-1 bg-ink-100 rounded-lg mb-5">
+          {['single', 'paired'].map(m => (
+            <button
+              key={m} type="button"
+              onClick={() => setMode(m)}
+              className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${mode === m ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-400 hover:text-ink-600'}`}
+            >
+              {m === 'single' ? 'Single Entry' : 'Payment / Transfer'}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Shared: date + amount */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label mb-1.5 block">Date</label>
-              <input type="date" className="input" value={form.date} onChange={e => set('date', e.target.value)} required />
+              <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} required />
             </div>
             <div>
               <label className="label mb-1.5 block">Amount</label>
-              <input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} required />
+              <input type="number" step="0.01" min="0" className="input" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label mb-1.5 block">Account</label>
-              <input className="input" placeholder="e.g. Amex Credit" value={form.account} onChange={e => set('account', e.target.value)} required />
-            </div>
-            <div>
-              <label className="label mb-1.5 block">Account Type</label>
-              <select className="input" value={form.accountType} onChange={e => set('accountType', e.target.value)}>
-                {ACCOUNT_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
+          {mode === 'paired' ? (
+            <>
+              {/* From account (source — money leaves) */}
+              <div>
+                <label className="label mb-1.5 block">
+                  From <span className="normal-case font-normal text-ink-400">— money leaves this account</span>
+                </label>
+                <AccountSelect accounts={accounts} value={from.accountId} onChange={handleFromAccount} required />
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label mb-1.5 block">Category</label>
-              <select className="input" value={form.category} onChange={e => set('category', e.target.value)}>
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label mb-1.5 block">CR / DR</label>
-              <select className="input" value={form.crDr} onChange={e => set('crDr', e.target.value)}>
-                <option>Credit</option>
-                <option>Debit</option>
-              </select>
-            </div>
-          </div>
+              {/* To account (destination — debt paid or balance received) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label mb-1.5 block">
+                    To <span className="normal-case font-normal text-ink-400">— paid / received</span>
+                  </label>
+                  <AccountSelect accounts={accounts} value={to.accountId} onChange={handleToAccount} required />
+                </div>
+                <div>
+                  <label className="label mb-1.5 block">Category</label>
+                  <select className="input" value={to.category} onChange={e => setTo(t => ({ ...t, category: e.target.value }))}>
+                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Single account */}
+              <div>
+                <label className="label mb-1.5 block">Account</label>
+                <AccountSelect accounts={accounts} value={single.accountId} onChange={handleSingleAccount} required />
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label mb-1.5 block">Category</label>
+                  <select className="input" value={single.category} onChange={e => setSingle(s => ({ ...s, category: e.target.value }))}>
+                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label mb-1.5 block">CR / DR</label>
+                  <select className="input" value={single.crDr} onChange={e => setSingle(s => ({ ...s, crDr: e.target.value }))}>
+                    <option>Credit</option>
+                    <option>Debit</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Shared: description */}
           <div>
             <label className="label mb-1.5 block">Description</label>
-            <input className="input" placeholder="e.g. Chipotle" value={form.description} onChange={e => set('description', e.target.value)} required />
+            <input
+              className="input"
+              placeholder={mode === 'paired' ? 'e.g. Student Loan Payment' : 'e.g. Chipotle'}
+              value={description}
+              onChange={e => setDesc(e.target.value)}
+              required
+            />
           </div>
 
           {error && <p className="text-sm text-coral bg-coral/10 rounded-lg px-4 py-2.5">{error}</p>}
@@ -223,8 +332,12 @@ export default function Transactions() {
     setTransactions(prev => prev.filter(t => t._id !== id))
   }, [])
 
-  const handleCreated = useCallback((txn) => {
-    setTransactions(prev => [txn, ...prev])
+  const handleCreated = useCallback((result) => {
+    if (result.primary && result.secondary) {
+      setTransactions(prev => [result.primary, result.secondary, ...prev])
+    } else {
+      setTransactions(prev => [result, ...prev])
+    }
   }, [])
 
   // Period summary

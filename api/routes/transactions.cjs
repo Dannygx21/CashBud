@@ -1,5 +1,4 @@
-const express    = require('express');
-const mongoose   = require('mongoose');
+const express     = require('express');
 const Transaction = require('../../db/models/Transaction.model.cjs');
 const Account     = require('../../db/models/Account.model.cjs');
 
@@ -19,11 +18,10 @@ function balanceDelta(accountType, crDr, amount) {
   return                               crDr === 'Credit' ? amount : -amount;
 }
 
-async function applyDelta(accountId, delta, session) {
+async function applyDelta(accountId, delta) {
   await Account.findByIdAndUpdate(
     accountId,
-    { $inc: { balance: delta }, lastUpdated: new Date() },
-    { session }
+    { $inc: { balance: delta }, lastUpdated: new Date() }
   );
 }
 
@@ -70,9 +68,6 @@ router.get('/', async (req, res) => {
 // and updates both account balances atomically.
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { date, payPeriod = '', paired } = req.body;
 
@@ -80,45 +75,29 @@ router.post('/', async (req, res) => {
       // ── Paired entry (credit card payment, savings transfer, etc.) ──────────
       const { primary, secondary } = paired;
 
-      const [p, s] = await Transaction.insertMany(
-        [
-          { ...primary,   date, payPeriod },
-          { ...secondary, date, payPeriod },
-        ],
-        { session }
-      );
+      const p = await Transaction.create({ ...primary, date, payPeriod });
+      const s = await Transaction.create({ ...secondary, date, payPeriod });
 
       // Link them to each other
-      await Transaction.findByIdAndUpdate(p._id, { linkedId: s._id }, { session });
-      await Transaction.findByIdAndUpdate(s._id, { linkedId: p._id }, { session });
+      p.linkedId = s._id;
+      s.linkedId = p._id;
+      await Promise.all([p.save(), s.save()]);
 
       // Update both account balances
-      await applyDelta(primary.accountId,   balanceDelta(primary.accountType,   primary.crDr,   primary.amount),   session);
-      await applyDelta(secondary.accountId, balanceDelta(secondary.accountType, secondary.crDr, secondary.amount), session);
+      await applyDelta(primary.accountId,   balanceDelta(primary.accountType,   primary.crDr,   primary.amount));
+      await applyDelta(secondary.accountId, balanceDelta(secondary.accountType, secondary.crDr, secondary.amount));
 
-      await session.commitTransaction();
-      session.endSession();
-
-      // Return both with updated linkedIds
-      const [pFinal, sFinal] = await Promise.all([
-        Transaction.findById(p._id),
-        Transaction.findById(s._id),
-      ]);
-      return res.status(201).json({ primary: pFinal, secondary: sFinal });
+      return res.status(201).json({ primary: p, secondary: s });
     }
 
     // ── Single leg ─────────────────────────────────────────────────────────────
     const { accountId, accountType, crDr, amount } = req.body;
-    const [tx] = await Transaction.insertMany([{ ...req.body, date, payPeriod }], { session });
-    await applyDelta(accountId, balanceDelta(accountType, crDr, amount), session);
+    const tx = await Transaction.create({ ...req.body, date, payPeriod });
+    await applyDelta(accountId, balanceDelta(accountType, crDr, amount));
 
-    await session.commitTransaction();
-    session.endSession();
     return res.status(201).json(tx);
 
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
     console.error('[transactions/post]', err);
     res.status(400).json({ error: err.message });
   }
@@ -147,38 +126,25 @@ router.put('/:id', async (req, res) => {
 // Reverses the balance delta on the account. If the transaction has a linkedId,
 // deletes and reverses the linked leg too.
 router.delete('/:id', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const tx = await Transaction.findById(req.params.id).session(session);
-    if (!tx) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ error: 'Transaction not found.' });
-    }
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ error: 'Transaction not found.' });
 
     // Reverse this leg
-    const reverseDelta = -balanceDelta(tx.accountType, tx.crDr, tx.amount);
-    await applyDelta(tx.accountId, reverseDelta, session);
-    await Transaction.findByIdAndDelete(tx._id, { session });
+    await applyDelta(tx.accountId, -balanceDelta(tx.accountType, tx.crDr, tx.amount));
+    await tx.deleteOne();
 
     // Reverse and delete linked leg if present
     if (tx.linkedId) {
-      const linked = await Transaction.findById(tx.linkedId).session(session);
+      const linked = await Transaction.findById(tx.linkedId);
       if (linked) {
-        const linkedReverse = -balanceDelta(linked.accountType, linked.crDr, linked.amount);
-        await applyDelta(linked.accountId, linkedReverse, session);
-        await Transaction.findByIdAndDelete(linked._id, { session });
+        await applyDelta(linked.accountId, -balanceDelta(linked.accountType, linked.crDr, linked.amount));
+        await linked.deleteOne();
       }
     }
 
-    await session.commitTransaction();
-    session.endSession();
     res.json({ deleted: true });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
     console.error('[transactions/delete]', err);
     res.status(500).json({ error: 'Server error.' });
   }
