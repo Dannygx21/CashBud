@@ -1,0 +1,7 @@
+.git
+.gitignore
+.env.local
+*.md
+frontend/node_modules
+node_modules
+sheets/

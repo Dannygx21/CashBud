@@ -18,7 +18,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('bb_token')
       localStorage.removeItem('bb_user')
-      window.location.href = '/login'
+      window.location.href = (process.env.REACT_APP_BASENAME || '') + '/login'
     }
     return Promise.reject(err)
   }

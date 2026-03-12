@@ -31,7 +31,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={process.env.REACT_APP_BASENAME || '/'}>
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

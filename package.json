@@ -16,7 +16,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon api/server.cjs"
+    "dev": "nodemon api/server.cjs",
+    "seed": "node seed/seed.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
