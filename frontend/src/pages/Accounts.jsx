@@ -337,7 +337,7 @@ export default function Accounts() {
       <div className="flex items-end justify-between mb-8 fade-up">
         <div>
           <p className="label mb-1">Overview</p>
-          <h1 className="font-display text-4xl italic text-ink-900">Accounts</h1>
+          <h1 className="font-display text-2xl sm:text-4xl italic text-ink-900">Accounts</h1>
         </div>
         <div className="flex items-center gap-2">
           <button

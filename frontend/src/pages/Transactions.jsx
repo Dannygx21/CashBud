@@ -363,7 +363,7 @@ export default function Transactions() {
       <div className="flex items-end justify-between mb-8 fade-up">
         <div>
           <p className="label mb-1">History</p>
-          <h1 className="font-display text-4xl italic text-ink-900">Transactions</h1>
+          <h1 className="font-display text-2xl sm:text-4xl italic text-ink-900">Transactions</h1>
         </div>
         <button onClick={() => setShowModal(true)} className="btn-primary">+ Add</button>
       </div>

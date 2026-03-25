@@ -139,39 +139,74 @@ function ExpenseRow({ expense, onEdit, animDelay }) {
 
   return (
     <div
-      className={`fade-up flex items-center justify-between px-5 py-3.5 rounded-xl group transition-colors ${expense.paused ? 'opacity-40' : 'hover:bg-ink-50'}`}
+      className={`fade-up px-5 py-3.5 rounded-xl group transition-colors ${expense.paused ? 'opacity-40' : 'hover:bg-ink-50'}`}
       style={{ animationDelay: `${animDelay}ms` }}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink-900 truncate">
-            {expense.name}
-            {expense.paused && <span className="ml-2 text-xs text-ink-400 font-normal">(paused)</span>}
-          </p>
-          <p className="text-xs text-ink-400 truncate">{expense.personPaying}</p>
+      {/* Mobile: stacked layout */}
+      <div className="flex items-start justify-between gap-2 sm:hidden">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`w-2 h-2 rounded-full shrink-0 mt-1 ${cfg.dot}`} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink-900">
+              {expense.name}
+              {expense.paused && <span className="ml-2 text-xs text-ink-400 font-normal">(paused)</span>}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500">
+                {expense.frequency}
+              </span>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
+                {expense.category}
+              </span>
+            </div>
+            <p className="text-xs text-ink-400 mt-0.5">{expense.personPaying}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className="text-sm font-mono font-medium text-ink-900">{fmt(expense.amount)}</p>
+            {expense.frequency === 'Yearly' && (
+              <p className="text-xs font-mono text-ink-400">{fmt(monthly)}/mo</p>
+            )}
+          </div>
+          <button onClick={() => onEdit(expense)} className="text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100">
+            edit
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
-        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500">
-          {expense.frequency}
-        </span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
-          {expense.category}
-        </span>
-        <div className="text-right">
-          <p className="text-sm font-mono font-medium text-ink-900">{fmt(expense.amount)}</p>
-          {expense.frequency === 'Yearly' && (
-            <p className="text-xs font-mono text-ink-400">{fmt(monthly)}/mo</p>
-          )}
+      {/* Desktop: original single-row layout */}
+      <div className="hidden sm:flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink-900 truncate">
+              {expense.name}
+              {expense.paused && <span className="ml-2 text-xs text-ink-400 font-normal">(paused)</span>}
+            </p>
+            <p className="text-xs text-ink-400 truncate">{expense.personPaying}</p>
+          </div>
         </div>
-        <button
-          onClick={() => onEdit(expense)}
-          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
-        >
-          edit
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500">
+            {expense.frequency}
+          </span>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
+            {expense.category}
+          </span>
+          <div className="text-right">
+            <p className="text-sm font-mono font-medium text-ink-900">{fmt(expense.amount)}</p>
+            {expense.frequency === 'Yearly' && (
+              <p className="text-xs font-mono text-ink-400">{fmt(monthly)}/mo</p>
+            )}
+          </div>
+          <button
+            onClick={() => onEdit(expense)}
+            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
+          >
+            edit
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -267,7 +302,7 @@ export default function Expenses() {
       <div className="flex items-end justify-between mb-8 fade-up">
         <div>
           <p className="label mb-1">Monthly</p>
-          <h1 className="font-display text-4xl italic text-ink-900">Expenses</h1>
+          <h1 className="font-display text-2xl sm:text-4xl italic text-ink-900">Expenses</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -281,7 +316,7 @@ export default function Expenses() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8 fade-up fade-up-1">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 fade-up fade-up-1">
         {[
           { label: 'Total / Month', value: monthlyTotal },
           { label: 'Daniel',        value: danielTotal  },
@@ -289,7 +324,7 @@ export default function Expenses() {
         ].map(({ label, value }) => (
           <div key={label} className="card p-5">
             <p className="label mb-2">{label}</p>
-            <p className="font-display text-3xl italic tracking-tight text-ink-900">{fmt(value)}</p>
+            <p className="font-display text-2xl sm:text-3xl italic tracking-tight text-ink-900">{fmt(value)}</p>
             <p className="text-xs text-ink-400 font-mono mt-1">per month</p>
           </div>
         ))}
