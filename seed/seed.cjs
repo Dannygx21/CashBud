@@ -98,6 +98,8 @@ async function seed() {
       passwordHash: await bcrypt.hash(process.env.USER1_PASS || 'changeme123', 12),
       incomePerPaycheck: 2500.34,
       paycheckFrequency: 'biweekly',
+      paycheckAnchorDate: new Date('2025-12-26'),
+      transactionGrouping: 'payperiod',
       role: 'admin',
       color: '#6366f1',
     }),

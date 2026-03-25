@@ -7,6 +7,7 @@ import Accounts from './pages/Accounts'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import Expenses from './pages/Expenses'
+import Settings from './pages/Settings'
 
 function PrivateRoute({ children }) {
   const { user } = useAuth()
@@ -25,6 +26,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="expenses" element={<Expenses />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   )

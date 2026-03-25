@@ -13,11 +13,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', require('./routes/auth.cjs'));
-app.use('/api/accounts', require('./routes/accounts.cjs'));
-app.use('/api/transactions', require('./routes/transactions.cjs'));
-app.use('/api/expenses', require('./routes/expenses.cjs'));
-app.use('/api/dashboard', require('./routes/dashboard.cjs'));
+app.use('/api/auth',         require('./routes/auth.cjs'));
+app.use('/api/profile',      require('./routes/profile.cjs'));
+app.use('/api/accounts',     require('./routes/accounts.cjs'));
+app.use('/api/transactions',  require('./routes/transactions.cjs'));
+app.use('/api/expenses',      require('./routes/expenses.cjs'));
+app.use('/api/dashboard',     require('./routes/dashboard.cjs'));
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', ts: new Date() }));
 

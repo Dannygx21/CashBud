@@ -37,16 +37,102 @@ const fmt = (n) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 
 const fmtDate = (d) =>
-  new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+
+const fmtDateInput = (d) => {
+  const dt = new Date(d)
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`
+}
 
 function currentYearMonth() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
-// ─── Add Transaction Modal ────────────────────────────────────────────────────
+// ─── Pay Period Helpers ───────────────────────────────────────────────────────
 
-// Auto-suggest the "to" category based on account category
+/**
+ * Returns an array of { label, start, end } period objects that overlap the given month.
+ * start/end are Date objects (start inclusive, end inclusive).
+ */
+function computePeriods(grouping, year, month, anchorDate) {
+  const monthStart = new Date(year, month - 1, 1)
+  const monthEnd   = new Date(year, month, 0) // last day of month
+
+  if (grouping === 'monthly') {
+    return [{ label: MONTHS[month - 1] + ' ' + year, start: monthStart, end: monthEnd }]
+  }
+
+  if (grouping === 'weekly') {
+    const periods = []
+    let cur = new Date(monthStart)
+    while (cur <= monthEnd) {
+      const start = new Date(cur)
+      const end   = new Date(cur)
+      end.setDate(end.getDate() + 6)
+      if (end > monthEnd) end.setTime(monthEnd.getTime())
+      periods.push({
+        label: fmtDate(start) + ' – ' + fmtDate(end),
+        start,
+        end,
+      })
+      cur.setDate(cur.getDate() + 7)
+    }
+    return periods
+  }
+
+  if (grouping === 'bimonthly') {
+    const mid    = new Date(year, month - 1, 14)
+    const midP1  = new Date(year, month - 1, 15)
+    return [
+      { label: fmtDate(monthStart) + ' – ' + fmtDate(mid), start: monthStart, end: mid },
+      { label: fmtDate(midP1) + ' – ' + fmtDate(monthEnd), start: midP1,      end: monthEnd },
+    ]
+  }
+
+  if (grouping === 'payperiod' && anchorDate) {
+    const raw    = new Date(anchorDate)
+    const anchor = new Date(raw.getUTCFullYear(), raw.getUTCMonth(), raw.getUTCDate())
+    const MS_DAY  = 86400000
+    const MS_PERIOD = 14 * MS_DAY
+
+    // Find the first period start at or before monthStart
+    const diffMs   = monthStart.getTime() - anchor.getTime()
+    const periods  = Math.floor(diffMs / MS_PERIOD)
+    let   curStart = new Date(anchor.getTime() + periods * MS_PERIOD)
+    if (curStart > monthStart) curStart = new Date(curStart.getTime() - MS_PERIOD)
+
+    const result = []
+    while (curStart <= monthEnd) {
+      const start = new Date(curStart)
+      const end   = new Date(curStart.getTime() + 13 * MS_DAY)
+      // Only include period if it overlaps the month
+      if (end >= monthStart && start <= monthEnd) {
+        result.push({ label: fmtDate(start) + ' – ' + fmtDate(end), start, end })
+      }
+      curStart = new Date(curStart.getTime() + MS_PERIOD)
+    }
+    return result
+  }
+
+  return [{ label: MONTHS[month - 1] + ' ' + year, start: monthStart, end: monthEnd }]
+}
+
+function txInPeriod(tx, period) {
+  const raw = new Date(tx.date)
+  const d   = new Date(raw.getUTCFullYear(), raw.getUTCMonth(), raw.getUTCDate())
+  return d >= period.start && d <= period.end
+}
+
+function periodStats(txns) {
+  const income = txns.filter(t => t.crDr === 'Debit'  && t.category === 'Income') .reduce((s, t) => s + t.amount, 0)
+  const spent  = txns.filter(t => t.crDr === 'Credit')                             .reduce((s, t) => s + t.amount, 0)
+  const saved  = txns.filter(t => t.crDr === 'Debit'  && t.category === 'Savings').reduce((s, t) => s + t.amount, 0)
+  return { income, spent, saved }
+}
+
+// ─── Auto-suggest "to" category ──────────────────────────────────────────────
+
 const TO_CATEGORY = {
   Loan:        'Bill/Loan/Credit',
   Credit:      'Transaction',
@@ -54,6 +140,29 @@ const TO_CATEGORY = {
   Checking:    'Balance',
   Investments: 'Investment',
 }
+
+// ─── CR/DR Hint ───────────────────────────────────────────────────────────────
+
+const CRDR_HINTS = {
+  Credit: {
+    Credit: 'Credit account + Credit — you charged/used this account. Balance owed goes up.',
+    Debit:  'Credit account + Debit — you made a payment. Balance owed goes down.',
+  },
+  Debit: {
+    Credit: 'Debit account + Credit — money left this account (purchase, withdrawal).',
+    Debit:  'Debit account + Debit — money entered this account (income, transfer in).',
+  },
+}
+
+function CrDrHint({ accountType, crDr }) {
+  const hint = CRDR_HINTS[accountType]?.[crDr]
+  if (!hint) return null
+  return (
+    <p className="text-xs text-ink-400 mt-1 leading-snug">{hint}</p>
+  )
+}
+
+// ─── Account Select ───────────────────────────────────────────────────────────
 
 function AccountSelect({ accounts, value, onChange, required }) {
   return (
@@ -66,22 +175,21 @@ function AccountSelect({ accounts, value, onChange, required }) {
   )
 }
 
+// ─── Add Transaction Modal ────────────────────────────────────────────────────
+
 function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
   const [year, mon] = selectedMonth.split('-')
   const [mode, setMode] = useState('single') // 'single' | 'paired'
 
-  // Shared fields
-  const [date, setDate]           = useState(`${year}-${mon}-01`)
-  const [amount, setAmount]       = useState('')
-  const [description, setDesc]    = useState('')
+  const [date, setDate]        = useState(`${year}-${mon}-01`)
+  const [amount, setAmount]    = useState('')
+  const [description, setDesc] = useState('')
 
-  // Single-mode fields
   const [single, setSingle] = useState({
     accountId: '', account: '', accountType: 'Debit',
     category: 'Food', crDr: 'Credit',
   })
 
-  // Paired-mode fields
   const [from, setFrom] = useState({ accountId: '', account: '', accountType: '' })
   const [to, setTo]     = useState({ accountId: '', account: '', accountType: '', category: 'Bill/Loan/Credit' })
 
@@ -168,7 +276,6 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
           {/* Shared: date + amount */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -183,7 +290,6 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
 
           {mode === 'paired' ? (
             <>
-              {/* From account (source — money leaves) */}
               <div>
                 <label className="label mb-1.5 block">
                   From <span className="normal-case font-normal text-ink-400">— money leaves this account</span>
@@ -191,7 +297,6 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
                 <AccountSelect accounts={accounts} value={from.accountId} onChange={handleFromAccount} required />
               </div>
 
-              {/* To account (destination — debt paid or balance received) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label mb-1.5 block">
@@ -209,7 +314,6 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
             </>
           ) : (
             <>
-              {/* Single account */}
               <div>
                 <label className="label mb-1.5 block">Account</label>
                 <AccountSelect accounts={accounts} value={single.accountId} onChange={handleSingleAccount} required />
@@ -228,12 +332,12 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
                     <option>Credit</option>
                     <option>Debit</option>
                   </select>
+                  <CrDrHint accountType={single.accountType} crDr={single.crDr} />
                 </div>
               </div>
             </>
           )}
 
-          {/* Shared: description */}
           <div>
             <label className="label mb-1.5 block">Description</label>
             <input
@@ -259,9 +363,81 @@ function AddTransactionModal({ onClose, onCreated, selectedMonth }) {
   )
 }
 
+// ─── Edit Transaction Modal ───────────────────────────────────────────────────
+
+function EditTransactionModal({ txn, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    description: txn.description,
+    category:    txn.category,
+    date:        fmtDateInput(txn.date),
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const { data } = await api.put(`/transactions/${txn._id}`, form)
+      onSaved(data)
+      onClose()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="card w-full max-w-md p-7 fade-up">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-display text-2xl italic text-ink-900">Edit Transaction</h2>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-700 transition-colors text-lg">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="label mb-1.5 block">Date</label>
+            <input type="date" className="input" value={form.date} onChange={e => set('date', e.target.value)} required />
+          </div>
+
+          <div>
+            <label className="label mb-1.5 block">Description</label>
+            <input className="input" value={form.description} onChange={e => set('description', e.target.value)} required />
+          </div>
+
+          <div>
+            <label className="label mb-1.5 block">Category</label>
+            <select className="input" value={form.category} onChange={e => set('category', e.target.value)}>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="text-xs text-ink-400 bg-ink-50 rounded-lg px-4 py-2.5">
+            Amount and account cannot be changed. Delete and re-add if needed.
+          </div>
+
+          {error && <p className="text-sm text-coral bg-coral/10 rounded-lg px-4 py-2.5">{error}</p>}
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1 disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Transaction Row ──────────────────────────────────────────────────────────
 
-function TransactionRow({ txn, onDelete }) {
+function TransactionRow({ txn, onDelete, onEdit }) {
   const [confirming, setConfirming] = useState(false)
   const isIncome = txn.crDr === 'Debit'
 
@@ -277,11 +453,11 @@ function TransactionRow({ txn, onDelete }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${CATEGORY_COLORS[txn.category] || 'bg-ink-100 text-ink-500'}`}>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full ${CATEGORY_COLORS[txn.category] || 'bg-ink-100 text-ink-500'}`}>
           {txn.category}
         </span>
-        <span className={`text-sm font-mono font-medium w-24 text-right ${isIncome ? 'text-sage-dark' : 'text-coral'}`}>
+        <span className={`text-sm font-mono font-medium w-20 text-right ${isIncome ? 'text-sage-dark' : 'text-coral'}`}>
           {isIncome ? '+' : '-'}{fmt(txn.amount)}
         </span>
         {confirming ? (
@@ -290,14 +466,49 @@ function TransactionRow({ txn, onDelete }) {
             <button onClick={() => setConfirming(false)} className="text-xs px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-100 transition-colors">Cancel</button>
           </div>
         ) : (
-          <button
-            onClick={() => setConfirming(true)}
-            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-xs text-ink-400 hover:text-coral px-2 py-1 rounded-lg hover:bg-ink-100"
-          >
-            ✕
-          </button>
+          <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => onEdit(txn)}
+              className="text-xs text-ink-400 hover:text-ink-600 px-2 py-1 rounded-lg hover:bg-ink-100"
+            >
+              edit
+            </button>
+            <button
+              onClick={() => setConfirming(true)}
+              className="text-xs text-ink-400 hover:text-coral px-2 py-1 rounded-lg hover:bg-ink-100"
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Period Section ───────────────────────────────────────────────────────────
+
+function PeriodSection({ period, transactions, onDelete, onEdit, index }) {
+  const { income, spent, saved } = periodStats(transactions)
+  return (
+    <div className="card fade-up mb-4" style={{ animationDelay: `${index * 40}ms` }}>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-ink-100">
+        <span className="text-xs font-medium text-ink-600">{period.label}</span>
+        <div className="flex gap-3 text-xs font-mono">
+          {income > 0 && <span className="text-sage-dark">+{fmt(income)}</span>}
+          {spent  > 0 && <span className="text-coral">-{fmt(spent)}</span>}
+          {saved  > 0 && <span className="text-blue-600">saved {fmt(saved)}</span>}
+        </div>
+      </div>
+      {transactions.length === 0 ? (
+        <p className="px-5 py-4 text-xs text-ink-300 italic">No transactions this period.</p>
+      ) : (
+        <div className="px-2 py-2">
+          {transactions.map(txn => (
+            <TransactionRow key={txn._id} txn={txn} onDelete={onDelete} onEdit={onEdit} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -305,11 +516,18 @@ function TransactionRow({ txn, onDelete }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Transactions() {
-  const [month, setMonth]             = useState(currentYearMonth)
+  const [month, setMonth]               = useState(currentYearMonth)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [transactions, setTransactions] = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [showModal, setShowModal]     = useState(false)
+  const [loading, setLoading]           = useState(true)
+  const [showAdd, setShowAdd]           = useState(false)
+  const [editTxn, setEditTxn]           = useState(null)
+  const [profile, setProfile]           = useState(null)
+
+  // Load user profile for grouping settings
+  useEffect(() => {
+    api.get('/profile').then(({ data }) => setProfile(data)).catch(() => {})
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -329,7 +547,7 @@ export default function Transactions() {
 
   const handleDelete = useCallback(async (id) => {
     await api.delete(`/transactions/${id}`)
-    setTransactions(prev => prev.filter(t => t._id !== id))
+    setTransactions(prev => prev.filter(t => t._id !== id && t.linkedId !== id))
   }, [])
 
   const handleCreated = useCallback((result) => {
@@ -340,10 +558,9 @@ export default function Transactions() {
     }
   }, [])
 
-  // Period summary
-  const income   = transactions.filter(t => t.crDr === 'Debit' && t.category === 'Income').reduce((s, t) => s + t.amount, 0)
-  const spent    = transactions.filter(t => t.crDr === 'Credit').reduce((s, t) => s + t.amount, 0)
-  const saved    = transactions.filter(t => t.crDr === 'Debit' && t.category === 'Savings').reduce((s, t) => s + t.amount, 0)
+  const handleSaved = useCallback((updated) => {
+    setTransactions(prev => prev.map(t => t._id === updated._id ? updated : t))
+  }, [])
 
   // Month navigator
   const [navYear, navMon] = month.split('-').map(Number)
@@ -356,6 +573,16 @@ export default function Transactions() {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
 
+  // Overall month summaries
+  const income = transactions.filter(t => t.crDr === 'Debit'  && t.category === 'Income') .reduce((s, t) => s + t.amount, 0)
+  const spent  = transactions.filter(t => t.crDr === 'Credit')                             .reduce((s, t) => s + t.amount, 0)
+  const saved  = transactions.filter(t => t.crDr === 'Debit'  && t.category === 'Savings').reduce((s, t) => s + t.amount, 0)
+
+  // Compute periods from profile settings
+  const grouping = profile?.transactionGrouping || 'monthly'
+  const periods  = computePeriods(grouping, navYear, navMon, profile?.paycheckAnchorDate)
+  const useGroups = grouping !== 'monthly'
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
 
@@ -365,7 +592,7 @@ export default function Transactions() {
           <p className="label mb-1">History</p>
           <h1 className="font-display text-2xl sm:text-4xl italic text-ink-900">Transactions</h1>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary">+ Add</button>
+        <button onClick={() => setShowAdd(true)} className="btn-primary">+ Add</button>
       </div>
 
       {/* Month nav + filter */}
@@ -388,45 +615,64 @@ export default function Transactions() {
         </select>
       </div>
 
-      {/* Period summary */}
+      {/* Monthly summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
-          { label: 'Income',  value: income, color: 'text-sage-dark' },
-          { label: 'Spent',   value: spent,  color: 'text-coral'     },
-          { label: 'Saved',   value: saved,  color: 'text-blue-600'  },
+          { label: 'Income', value: income, color: 'text-sage-dark' },
+          { label: 'Spent',  value: spent,  color: 'text-coral'     },
+          { label: 'Saved',  value: saved,  color: 'text-blue-600'  },
         ].map(({ label, value, color }) => (
           <div key={label} className="card p-4 fade-up">
             <p className="label mb-1">{label}</p>
-            <p className={`font-display text-2xl italic tracking-tight ${color}`}>{fmt(value)}</p>
+            <p className={`font-display text-xl sm:text-2xl italic tracking-tight ${color}`}>{fmt(value)}</p>
           </div>
         ))}
       </div>
 
       {/* Transaction list */}
-      <div className="card fade-up">
-        {loading ? (
-          <div className="py-16 text-center">
-            <p className="font-display text-2xl italic text-ink-300">Loading…</p>
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="font-display text-2xl italic text-ink-300 mb-2">No transactions</p>
-            <p className="text-sm text-ink-400">Add one to get started</p>
-          </div>
-        ) : (
+      {loading ? (
+        <div className="card py-16 text-center fade-up">
+          <p className="font-display text-2xl italic text-ink-300">Loading…</p>
+        </div>
+      ) : transactions.length === 0 ? (
+        <div className="card py-16 text-center fade-up">
+          <p className="font-display text-2xl italic text-ink-300 mb-2">No transactions</p>
+          <p className="text-sm text-ink-400">Add one to get started</p>
+        </div>
+      ) : useGroups ? (
+        periods.map((period, i) => (
+          <PeriodSection
+            key={period.label}
+            index={i}
+            period={period}
+            transactions={transactions.filter(t => txInPeriod(t, period))}
+            onDelete={handleDelete}
+            onEdit={setEditTxn}
+          />
+        ))
+      ) : (
+        <div className="card fade-up">
           <div className="px-2 py-2">
             {transactions.map(txn => (
-              <TransactionRow key={txn._id} txn={txn} onDelete={handleDelete} />
+              <TransactionRow key={txn._id} txn={txn} onDelete={handleDelete} onEdit={setEditTxn} />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {showModal && (
+      {showAdd && (
         <AddTransactionModal
-          onClose={() => setShowModal(false)}
+          onClose={() => setShowAdd(false)}
           onCreated={handleCreated}
           selectedMonth={month}
+        />
+      )}
+
+      {editTxn && (
+        <EditTransactionModal
+          txn={editTxn}
+          onClose={() => setEditTxn(null)}
+          onSaved={handleSaved}
         />
       )}
     </div>

@@ -6,6 +6,7 @@ const NAV = [
   { to: '/dashboard',    label: 'Dashboard',    icon: '◈' },
   { to: '/transactions', label: 'Transactions', icon: '⇄' },
   { to: '/expenses',     label: 'Expenses',     icon: '◻' },
+  { to: '/settings',     label: 'Settings',     icon: '⚙' },
 ]
 
 export default function Layout() {

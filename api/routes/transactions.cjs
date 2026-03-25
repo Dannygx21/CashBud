@@ -81,7 +81,7 @@ router.post('/', async (req, res) => {
 // ─── PUT /api/transactions/:id ────────────────────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
-    const allowed = ['description', 'category', 'payPeriod'];
+    const allowed = ['description', 'category', 'payPeriod', 'date'];
     const update  = Object.fromEntries(
       Object.entries(req.body).filter(([k]) => allowed.includes(k))
     );
