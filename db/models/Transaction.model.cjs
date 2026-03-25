@@ -9,6 +9,7 @@ const CATEGORIES    = [
 ];
 
 const transactionSchema = new mongoose.Schema({
+  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   date:        { type: Date, required: true },
   accountId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
   account:     { type: String, required: true },        // denormalized display name

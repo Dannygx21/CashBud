@@ -1,7 +1,7 @@
 /**
- * Seed script — imports all data from your 2026_Budget_Buddy.xlsx
- * Run: node scripts/seed.js
- * Requires MONGO_URI in .env
+ * Seed script
+ * Run (local):     node seed/seed.cjs
+ * Run (container): docker exec cashbuddy-api node seed/seed.cjs
  */
 const path = require('path');
 require('dotenv').config({
@@ -11,9 +11,10 @@ require('dotenv').config({
 })
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const Account = require('../db/models/Account.model.cjs');
+const Account        = require('../db/models/Account.model.cjs');
 const MonthlyExpense = require('../db/models/MonthlyExpense.model.cjs');
-const User = require('../db/models/User.model.cjs');
+const Transaction    = require('../db/models/Transaction.model.cjs');
+const User           = require('../db/models/User.model.cjs');
 
 const { connectToMongo } = require('../db/connect.cjs')
 
@@ -84,9 +85,10 @@ async function seed() {
   await Promise.all([
     Account.deleteMany({}),
     MonthlyExpense.deleteMany({}),
+    Transaction.deleteMany({}),
     User.deleteMany({}),
   ]);
-  console.log('Cleared existing accounts, expenses, users');
+  console.log('Cleared existing accounts, expenses, transactions, users');
 
   // Create users
   const [daniel, chloe] = await Promise.all([
@@ -111,12 +113,12 @@ async function seed() {
   ]);
   console.log(`Created users: ${daniel.email}, ${chloe.email}`);
 
-  // Seed accounts
-  await Account.insertMany(ACCOUNTS);
+  // Seed accounts — all owned by Daniel
+  await Account.insertMany(ACCOUNTS.map(a => ({ ...a, userId: daniel._id })));
   console.log(`Seeded ${ACCOUNTS.length} accounts`);
 
-  // Seed monthly expenses
-  await MonthlyExpense.insertMany(EXPENSES);
+  // Seed monthly expenses — all owned by Daniel
+  await MonthlyExpense.insertMany(EXPENSES.map(e => ({ ...e, userId: daniel._id })));
   console.log(`Seeded ${EXPENSES.length} monthly expenses`);
 
   console.log('\n✅ Seed complete!');

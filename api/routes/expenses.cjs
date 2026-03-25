@@ -1,12 +1,15 @@
-const express = require('express');
+const express        = require('express');
 const MonthlyExpense = require('../../db/models/MonthlyExpense.model.cjs');
+const requireAuth    = require('../middleware/auth.cjs');
 
 const router = express.Router();
+router.use(requireAuth);
 
 // GET /api/expenses
 router.get('/', async (req, res) => {
   try {
-    const filter = req.query.includeInactive === 'true' ? {} : { isActive: true };
+    const base   = { userId: req.user.id };
+    const filter = req.query.includeInactive === 'true' ? base : { ...base, isActive: true };
     const expenses = await MonthlyExpense.find(filter).sort({ amount: -1 });
     res.json(expenses);
   } catch (err) {
@@ -18,7 +21,7 @@ router.get('/', async (req, res) => {
 // POST /api/expenses
 router.post('/', async (req, res) => {
   try {
-    const expense = await MonthlyExpense.create(req.body);
+    const expense = await MonthlyExpense.create({ ...req.body, userId: req.user.id });
     res.status(201).json(expense);
   } catch (err) {
     console.error('[expenses/post]', err);
@@ -29,8 +32,8 @@ router.post('/', async (req, res) => {
 // PUT /api/expenses/:id
 router.put('/:id', async (req, res) => {
   try {
-    const expense = await MonthlyExpense.findByIdAndUpdate(
-      req.params.id,
+    const expense = await MonthlyExpense.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
       req.body,
       { new: true, runValidators: true }
     );

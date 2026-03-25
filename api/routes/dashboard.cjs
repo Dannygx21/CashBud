@@ -1,7 +1,9 @@
-const express = require('express');
+const express     = require('express');
 const Transaction = require('../../db/models/Transaction.model.cjs');
+const requireAuth = require('../middleware/auth.cjs');
 
 const router = express.Router();
+router.use(requireAuth);
 
 const SPEND_CATEGORIES = [
   'Food', 'Wants', 'Grocery', 'Gas', 'Subscription',
@@ -9,12 +11,12 @@ const SPEND_CATEGORIES = [
 ];
 
 // GET /api/dashboard?year=2026
-// Returns month-by-month overview matching the Year Overview sheet structure
 router.get('/', async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
 
     const transactions = await Transaction.find({
+      userId: req.user.id,
       date: {
         $gte: new Date(year, 0, 1),
         $lt:  new Date(year + 1, 0, 1),
@@ -41,9 +43,9 @@ router.get('/', async (req, res) => {
         .filter(t => t.category === 'Investment' && t.crDr === 'Debit')
         .reduce((s, t) => s + t.amount, 0);
 
-      const expenses = sumByCategory(SPEND_CATEGORIES);
-      const netProfit = income - expenses;
-      const totalSavings = savings + investments;
+      const expenses        = sumByCategory(SPEND_CATEGORIES);
+      const netProfit       = income - expenses;
+      const totalSavings    = savings + investments;
       const totalSavingsPct = income > 0 ? totalSavings / income : 0;
 
       return {

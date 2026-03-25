@@ -5,7 +5,7 @@ import api from '../api/client'
 
 const CATEGORIES = ['Loan', 'Grocery', 'Savings', 'Health Care', 'Want', 'Car Insurance', 'Investments', 'Membership']
 const FREQUENCIES = ['Monthly', 'Yearly']
-const PAYERS      = ['Daniel', 'Chloe', 'Taken Out of Paycheck', 'Paused', 'Split']
+const PAYERS      = ['Daniel', 'Chloe', 'Taken Out of Paycheck', 'Split']
 
 const CATEGORY_CONFIG = {
   Loan:             { color: 'bg-coral/10 text-coral',          dot: 'bg-coral'        },
