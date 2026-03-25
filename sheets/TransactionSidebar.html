@@ -432,21 +432,21 @@
           payPeriod: payPeriod,
           paired: {
             primary: {
-              accountId:   fromAcct.id,
-              account:     fromAcct.name,
-              accountType: fromAcct.type,
-              category:    fromCat,
-              description: desc,
-              crDr:        'Credit',   // money leaving source
-              amount:      amount,
-            },
-            secondary: {
               accountId:   toAcct.id,
               account:     toAcct.name,
               accountType: toAcct.type,
               category:    toCat,
               description: desc,
-              crDr:        'Debit',    // money arriving at destination
+              crDr:        'Debit',    // destination receives
+              amount:      amount,
+            },
+            secondary: {
+              accountId:   fromAcct.id,
+              account:     fromAcct.name,
+              accountType: fromAcct.type,
+              category:    fromCat,
+              description: desc,
+              crDr:        'Credit',   // source sends
               amount:      amount,
             },
           },

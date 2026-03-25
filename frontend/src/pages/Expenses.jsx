@@ -243,23 +243,21 @@ function CategorySection({ category, expenses, onEdit, sectionIndex }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Expenses() {
-  const [expenses, setExpenses]     = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [showInactive, setShowInactive] = useState(false)
-  const [modal, setModal]           = useState(null) // null | 'add' | expense object
+  const [expenses, setExpenses] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [modal, setModal]       = useState(null) // null | 'add' | expense object
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const params = showInactive ? '?includeInactive=true' : ''
-      const { data } = await api.get(`/expenses${params}`)
+      const { data } = await api.get('/expenses')
       setExpenses(data)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }, [showInactive])
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -304,15 +302,7 @@ export default function Expenses() {
           <p className="label mb-1">Monthly</p>
           <h1 className="font-display text-2xl sm:text-4xl italic text-ink-900">Expenses</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowInactive(v => !v)}
-            className={`btn-ghost text-xs ${showInactive ? 'bg-ink-100' : ''}`}
-          >
-            {showInactive ? 'Hide' : 'Show'} inactive
-          </button>
-          <button onClick={() => setModal('add')} className="btn-primary">+ Add Expense</button>
-        </div>
+        <button onClick={() => setModal('add')} className="btn-primary">+ Add Expense</button>
       </div>
 
       {/* Summary cards */}
