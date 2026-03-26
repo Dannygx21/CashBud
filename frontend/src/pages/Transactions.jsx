@@ -93,21 +93,22 @@ function computePeriods(grouping, year, month, anchorDate) {
   if (grouping === 'payperiod' && anchorDate) {
     const raw    = new Date(anchorDate)
     const anchor = new Date(raw.getUTCFullYear(), raw.getUTCMonth(), raw.getUTCDate())
-    const MS_DAY  = 86400000
+    const MS_DAY    = 86400000
     const MS_PERIOD = 14 * MS_DAY
 
-    // Find the first period start at or before monthStart
-    const diffMs   = monthStart.getTime() - anchor.getTime()
-    const periods  = Math.floor(diffMs / MS_PERIOD)
-    let   curStart = new Date(anchor.getTime() + periods * MS_PERIOD)
-    if (curStart > monthStart) curStart = new Date(curStart.getTime() - MS_PERIOD)
+    // Assign each pay period to the month where its midpoint (day 7) falls.
+    // This ensures each period belongs to exactly one month with no duplication.
+    const diffMs = monthStart.getTime() - anchor.getTime()
+    // Start two periods before monthStart to catch periods whose midpoint lands in this month
+    let curStart = new Date(anchor.getTime() + (Math.floor(diffMs / MS_PERIOD) - 2) * MS_PERIOD)
 
     const result = []
-    while (curStart <= monthEnd) {
-      const start = new Date(curStart)
-      const end   = new Date(curStart.getTime() + 13 * MS_DAY)
-      // Only include period if it overlaps the month
-      if (end >= monthStart && start <= monthEnd) {
+    const limit  = new Date(monthEnd.getTime() + MS_PERIOD) // stop well past month end
+    while (curStart <= limit) {
+      const midpoint = new Date(curStart.getTime() + 7 * MS_DAY)
+      if (midpoint >= monthStart && midpoint <= monthEnd) {
+        const start = new Date(curStart)
+        const end   = new Date(curStart.getTime() + 13 * MS_DAY)
         result.push({ label: fmtDate(start) + ' – ' + fmtDate(end), start, end })
       }
       curStart = new Date(curStart.getTime() + MS_PERIOD)
@@ -524,16 +525,39 @@ export default function Transactions() {
   const [editTxn, setEditTxn]           = useState(null)
   const [profile, setProfile]           = useState(null)
 
-  // Load user profile for grouping settings
+  // Load user profile for grouping settings; once loaded, transactions re-fetch via load()
   useEffect(() => {
-    api.get('/profile').then(({ data }) => setProfile(data)).catch(() => {})
+    api.get('/profile')
+      .then(({ data }) => setProfile(data))
+      .catch(() => setProfile({}))  // fall back to empty so load() proceeds
   }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ month })
+      const params = new URLSearchParams()
       if (categoryFilter) params.set('category', categoryFilter)
+
+      // When pay period grouping is active, periods may span across month
+      // boundaries — fetch the full range covered by all visible periods.
+      if (profile && profile.transactionGrouping !== 'monthly') {
+        const [y, m] = month.split('-').map(Number)
+        const ps = computePeriods(profile.transactionGrouping, y, m, profile.paycheckAnchorDate)
+        if (ps.length) {
+          const rangeStart = ps[0].start
+          const rangeEnd   = ps[ps.length - 1].end
+          // Format as ISO date strings (UTC midnight)
+          const pad = n => String(n).padStart(2, '0')
+          const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+          params.set('startDate', toISO(rangeStart) + 'T00:00:00.000Z')
+          params.set('endDate',   toISO(rangeEnd)   + 'T23:59:59.999Z')
+        } else {
+          params.set('month', month)
+        }
+      } else {
+        params.set('month', month)
+      }
+
       const { data } = await api.get(`/transactions?${params}`)
       setTransactions(data)
     } catch (err) {
@@ -541,7 +565,7 @@ export default function Transactions() {
     } finally {
       setLoading(false)
     }
-  }, [month, categoryFilter])
+  }, [month, categoryFilter, profile])
 
   useEffect(() => { load() }, [load])
 
@@ -573,10 +597,16 @@ export default function Transactions() {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
 
-  // Overall month summaries
-  const income = transactions.filter(t => t.crDr === 'Debit'  && t.category === 'Income') .reduce((s, t) => s + t.amount, 0)
-  const spent  = transactions.filter(t => t.crDr === 'Credit')                             .reduce((s, t) => s + t.amount, 0)
-  const saved  = transactions.filter(t => t.crDr === 'Debit'  && t.category === 'Savings').reduce((s, t) => s + t.amount, 0)
+  // Overall month summaries — restrict to the calendar month even when fetching a wider range
+  const calMonthStart = new Date(Date.UTC(navYear, navMon - 1, 1))
+  const calMonthEnd   = new Date(Date.UTC(navYear, navMon, 1))
+  const monthTxns = transactions.filter(t => {
+    const d = new Date(t.date)
+    return d >= calMonthStart && d < calMonthEnd
+  })
+  const income = monthTxns.filter(t => t.crDr === 'Debit'  && t.category === 'Income') .reduce((s, t) => s + t.amount, 0)
+  const spent  = monthTxns.filter(t => t.crDr === 'Credit')                             .reduce((s, t) => s + t.amount, 0)
+  const saved  = monthTxns.filter(t => t.crDr === 'Debit'  && t.category === 'Savings').reduce((s, t) => s + t.amount, 0)
 
   // Compute periods from profile settings
   const grouping = profile?.transactionGrouping || 'monthly'

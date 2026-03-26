@@ -109,3 +109,7 @@ docker-compose.yml
 #Excel
 .xlsx
 *.xlsx
+
+# CSV files
+*.CSV
+.CSV

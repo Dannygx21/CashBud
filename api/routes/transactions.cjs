@@ -25,11 +25,16 @@ router.get('/', async (req, res) => {
   try {
     const filter = { userId: req.user.id };
 
-    if (req.query.month) {
+    if (req.query.startDate && req.query.endDate) {
+      filter.date = {
+        $gte: new Date(req.query.startDate),
+        $lte: new Date(req.query.endDate),
+      };
+    } else if (req.query.month) {
       const [year, month] = req.query.month.split('-').map(Number);
       filter.date = {
-        $gte: new Date(year, month - 1, 1),
-        $lt:  new Date(year, month, 1),
+        $gte: new Date(Date.UTC(year, month - 1, 1)),
+        $lt:  new Date(Date.UTC(year, month, 1)),
       };
     }
     if (req.query.accountId) filter.accountId = req.query.accountId;
